@@ -1,0 +1,47 @@
+version: '3.7'
+
+services:
+  traefik:
+    image: traefik:v2.5.3
+    ports:
+      - 80:80
+      - 443:443
+      - 10000:8080
+    networks: 
+      - traefik_traffic
+    environment:
+      - CLOUDFLARE_API_KEY=${CF_API_KEY}
+      - CLOUDFLARE_EMAIL=${CF_API_EMAIL}
+    command:
+      - --log.level=DEBUG
+    restart: always
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /home/moose/containers/traefik/acme.json:/acme.json
+      - /home/moose/containers/traefik/traefik.log:/traefik.log
+      - /home/moose/containers/traefik/traefik.yml:/traefik.yaml
+      - /home/moose/containers/traefik/config.yml:/config.yml
+      - /home/moose/traefik.env:/traefik.env
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_traffic"
+      - "traefik.http.routers.traefik.entrypoints=http"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.crowlight.com`)"
+      # - "traefik.http.middlewares.traefik-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.sslheader.headers.customrequestheaders.X-Forwarded-Proto=https"
+      # - "traefik.http.routers.traefik.middlewares=traefik-https-redirect"
+      - "traefik.http.routers.traefik-secure.entrypoints=https"
+      - "traefik.http.routers.traefik-secure.rule=Host(`traefik.crowlight.com`)"
+      - "traefik.http.routers.traefik-secure.tls=true"
+      - "traefik.http.routers.traefik-secure.tls.certresolver=cloudflare"
+      - "traefik.http.routers.traefik-secure.tls.domains[0].main=swarm.crowlight.com"
+      - "traefik.http.routers.traefik-secure.tls.domains[0].sans=*.swarm.crowlight.com"
+      - "traefik.http.routers.traefik-secure.tls.domains[1].main=crowlight.com"
+      - "traefik.http.routers.traefik-secure.tls.domains[1].sans=*.crowlight.com"     
+      - "traefik.http.routers.traefik-secure.service=api@internal"
+      - "traefik.http.services.traefik.loadbalancer.server.port=8080"
+      
+networks:
+  traefik_traffic:
+    external: true
