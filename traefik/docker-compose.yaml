@@ -12,18 +12,37 @@ services:
     environment:
       - CLOUDFLARE_API_KEY=${CF_API_KEY}
       - CLOUDFLARE_EMAIL=${CF_API_EMAIL}
-    command:
-      - --log.level=DEBUG
+    command: >-
+      --pilot.token=${PILOT_TOKEN}
+      --api.dashboard=true
+      --log.level=DEBUG
+      --log.filepath=/traefik.log
+      --accesslog=true
+      --metrics.prometheus=true
+      --entrypoints.http.address=:80
+      --entrypoints.http.http.redirections.entrypoint.to=https
+      --entrypoints.http.http.redirections.entrypoint.scheme=https
+      --entrypoints.https.address=:443
+      --entrypoints.git-ssh.address=:222
+      --serverstransport.insecureskipverify=true
+      --providers.docker.endpoint=unix:///var/run/docker.sock
+      --providers.docker.network=traefik_traffic
+      --certificatesresolvers.cloudflare.acme.email=${CF_API_EMAIL}
+      --certificatesresolvers.cloudflare.acme.storage=acme.json
+      --certificatesresolvers.cloudflare.acme.dnschallenge.provider=cloudflare
+      --certificatesresolvers.cloudflare.acme.dnschallenge.resolvers=1.1.1.1:53
+
     restart: always
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /home/moose/containers/traefik/acme.json:/acme.json
       - /home/moose/containers/traefik/traefik.log:/traefik.log
-      - /home/moose/configs/docker/traefik/traefik-config.yml:/traefik.yaml
+      #- /home/moose/configs/docker/traefik/traefik-config.yml:/traefik.yaml
       - /home/moose/configs/docker/traefik/traefik.yml:/config.yml
       - /home/moose/traefik.env:/traefik.env
     labels:
+      # Traefik Setup
       - "traefik.enable=true"
       - "traefik.docker.network=traefik_traffic"
       - "traefik.http.routers.traefik.entrypoints=http"
@@ -41,6 +60,33 @@ services:
       - "traefik.http.routers.traefik-secure.tls.domains[1].sans=*.crowlight.com"     
       - "traefik.http.routers.traefik-secure.service=api@internal"
       - "traefik.http.services.traefik.loadbalancer.server.port=8080"
+      # Other Setup
+      - "traefik.http.serverstransports.mytransport.insecureskipverify=true"
+      - "traefik.http.middleswares.addprefix-pihole.addprefix.prefix=/admin"
+      - "traefik.http.middleswares.default-headers.headers.framedeny=true"
+      - "traefik.http.middleswares.default-headers.headers.sslredirect=true"
+      - "traefik.http.middleswares.default-headers.headers.browserxssfilter=true"
+      - "traefik.http.middleswares.default-headers.headers.contenttypenosniff=true"
+      - "traefik.http.middleswares.default-headers.headers.forcestsheader=true"
+      - "traefik.http.middleswares.default-headers.headers.stsincludesubdomains=true"
+      - "traefik.http.middleswares.default-headers.headers.stspreload=true"
+      - "traefik.http.middleswares.default-headers.headers.stsseconds=15552000"
+      - "traefik.http.middleswares.default-headers.headers.customframeoptionsvalue=sameorigin"
+      - "traefik.http.middleswares.default-headers.headers.customrequestheaders.x-forwarded-proto=https"
+      - "traefik.http.middleswares.default-whitelist.ipWhiteList.sourceRange[0]=0.0.0.0/0"
+      - "traefik.http.middleswares.secured.chain.middlewares[0].default-whitelist"
+      - "traefik.http.middleswares.secured.chain.middlewares[1].default-headers"
+      # Proxmox
+      - "traefik.http.routers.proxmox.entrypoints=https"
+      - "traefik.http.routers.proxmox.rule=Host(`proxmox.crowlight.com`)"
+      - "traefik.http.routers.proxmox.middlewares=default-headers"
+      - "traefik.http.routers.proxmox.tls=true"    
+      - "traefik.http.routers.proxmox.service=proxmox"
+      - "traefik.http.services.proxmox.loadbalancer.sticky.cookie=true"
+      - "traefik.http.services.proxmox.loadbalancer.serverstransport=mytransport"
+      - "traefik.http.services.proxmox.loadbalancer.servers[0].url=https://10.1.2.221:8006"
+      - "traefik.http.services.proxmox.loadbalancer.servers[0].url=https://10.1.2.222:8006"
+      - "traefik.http.services.proxmox.loadbalancer.passhostheader=true"
       
 networks:
   traefik_traffic:
