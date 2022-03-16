@@ -20,7 +20,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /home/moose/containers/traefik/acme.json:/acme.json
       - /home/moose/containers/traefik/traefik.log:/traefik.log
-      - /home/moose/containers/traefik/access.log:/access.log
+      #- /home/moose/containers/traefik/access.log:/access.log
       - /home/moose/configs/docker/traefik/traefik-config.yml:/traefik.yaml
       - /home/moose/configs/docker/traefik/traefik.yml:/config.yml
       - /home/moose/traefik.env:/traefik.env
